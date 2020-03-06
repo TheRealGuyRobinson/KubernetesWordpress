@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  labels:
+    app: wordpress
+spec:
+  ports:
+    - port: 80
+  selector:
+    app: wordpress
+    tier: frontend
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wp-pv-claim
+  labels:
+    app: wordpress
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: wordpress
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: frontend
+    spec:
+      containers:
+      - image: theslicksloth/slothswordpress:1.72
+        name: wordpress
+        env:
+        - name: WORDPRESS_DB_HOST
+          value: wordpress-mysql
+        - name: WORDPRESS_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-pass
+              key: password
+        volumeMounts:
+        - name: markdown
+          mountPath: /tmp/git
+      initContainers:
+      - name: git-sync
+        image: k8s.gcr.io/git-sync:v3.0.1
+        volumeMounts:
+        - name: markdown
+          mountPath: /tmp/git
+        env:
+        - name: GIT_SYNC_REPO
+          value: https://github.com/TheRealGuyRobinson/austravelcontent.git
+        - name: GIT_SYNC_DEST
+          value: wp-content
+        - name: GIT_SYNC_ONE_TIME
+          value: 'true'
+        ports:
+        - containerPort: 80
+          name: wordpress
+      volumes:
+      - name: html
+        emptyDir: {}
+      - name: markdown
+        emptyDir: {}
