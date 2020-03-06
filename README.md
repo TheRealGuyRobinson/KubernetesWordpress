@@ -1,0 +1,2 @@
+# KubernetesWordpress
+kubernetes Configuration
